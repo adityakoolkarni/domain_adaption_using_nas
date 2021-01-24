@@ -1,4 +1,15 @@
-# SGL
+# domain_adaption_using_nas
+
+## Authors: Dongxia Wu, Aditya Kulkarni, Balaji Shankar Balachandran
+
+## Description
+
+## Table of contents
+
+## Requirements <a name="requirements"></a>
+
+## Dataset <a name="dataset"></a>
+  Mnist for source domain, USBS for target domain
 
 Code accompanying the paper  
 ***Small Group Learning, with Application to Neural Architecture Search*** [paper]()  
