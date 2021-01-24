@@ -9,7 +9,7 @@
 ## Requirements <a name="requirements"></a>
 
 ## Dataset <a name="dataset"></a>
-  Mnist for source domain, USBS for target domain
+  MNIST for source domain, USBS for target domain
 
 Code accompanying the paper  
 ***Small Group Learning, with Application to Neural Architecture Search*** [paper]()  
