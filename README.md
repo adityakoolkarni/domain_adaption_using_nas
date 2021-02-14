@@ -7,6 +7,11 @@
 ## Table of contents
 
 ## Requirements <a name="requirements"></a>
+Use the requirements.txt file to create a virtual environment. That is , conda create --name <env> --file requirements.txt.
+
+## Running the Code
+sh script.sh
+Update: GPU number if you have multiple GPU's 
 
 ## Dataset <a name="dataset"></a>
   MNIST for source domain, USBS for target domain
