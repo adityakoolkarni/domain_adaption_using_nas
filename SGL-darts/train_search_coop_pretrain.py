@@ -67,6 +67,7 @@ parser.add_argument('--weight_lambda', type=float, default=1.0)
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--pretrain_steps', type=int, default=5)
 parser.add_argument('--is_ab2', type=int, default=0)
+parser.add_argument('--disable_nas',type=bool,default=False)
 args = parser.parse_args()
 
 args.save = 'search-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
@@ -197,10 +198,10 @@ def main():
       train_transform, valid_transform = utils._data_transforms_cifar10(args)
     if args.is_cifar100:
       train_data = dset.CIFAR100(
-          root=args.data, train=True, download=True, transform=train_transform)
+          root=args.data, train=True, download=False, transform=train_transform)
     else:
       train_data = dset.CIFAR10(
-          root=args.data, train=True, download=True, transform=train_transform)
+          root=args.data, train=True, download=False, transform=train_transform)
 
     num_train = len(train_data)
     indices = list(range(num_train))
