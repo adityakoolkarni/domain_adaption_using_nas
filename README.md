@@ -1,4 +1,4 @@
-# domain_adaption_using_nas
+# domain_adaption_using_Neural_Architecture_Search_and_Small_Group_Learning
 
 ## Authors: Dongxia Wu, Aditya Kulkarni, Balaji Shankar Balachandran
 
