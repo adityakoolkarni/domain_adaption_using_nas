@@ -35,7 +35,7 @@ parser.add_argument('--weight_decay', type=float,
 parser.add_argument('--report_freq', type=float,
                     default=50, help='report frequency')
 parser.add_argument('--gpu', type=str, default='0', help='gpu device id')
-parser.add_argument('--epochs', type=int, default=45,
+parser.add_argument('--epochs', type=int, default=30,
                     help='num of training epochs')
 parser.add_argument('--init_channels', type=int,
                     default=16, help='num of init channels')
@@ -201,7 +201,7 @@ def main():
           root=args.data, train=True, download=False, transform=train_transform)
     else:
       train_data = dset.CIFAR10(
-          root=args.data, train=True, download=False, transform=train_transform)
+          root=args.data, train=True, download=True, transform=train_transform)
 
     num_train = len(train_data)
     indices = list(range(num_train))
@@ -295,8 +295,8 @@ def main():
                 criterion)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
-            utils.save(model, os.path.join(args.save, 'weights.pt'))
-            utils.save(model1, os.path.join(args.save, 'weights1.pt'))
+            utils.save(model, os.path.join(args.save, 'weights0_'+str(epoch)+'.pt'))
+            utils.save(model1, os.path.join(args.save, 'weights1_'+str(epoch)+'.pt'))
 
 
 def train(args,

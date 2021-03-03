@@ -270,7 +270,9 @@ DARTS_V2 = Genotype(
             ('max_pool_3x3', 1)],
     reduce_concat=[2, 3, 4, 5])
 
-DARTS = DARTS_V2
+#DARTS = DARTS_V2
+DARTS = Genotype(normal=[('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_5x5', 2), ('sep_conv_5x5', 3), ('sep_conv_3x3', 4), ('sep_conv_3x3', 3)], normal_concat=range(2, 6), reduce=[('max_pool_3x3', 0), ('sep_conv_5x5', 1), ('dil_conv_5x5', 2), ('max_pool_3x3', 0), ('max_pool_3x3', 0), ('sep_conv_5x5', 3), ('sep_conv_5x5', 3), ('max_pool_3x3', 0)], reduce_concat=range(2, 6))
+
 
 DARTS_CIFAR10_TS_1ST = Genotype(
     normal=[('sep_conv_3x3', 0),

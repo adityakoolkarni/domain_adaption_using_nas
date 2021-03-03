@@ -15,19 +15,22 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from model import NetworkCIFAR as Network
 
+from collections import namedtuple
+
+Genotype = namedtuple('Genotype', 'normal normal_concat reduce reduce_concat')
 
 parser = argparse.ArgumentParser("cifar")
-parser.add_argument('--data', type=str, default='../data', help='location of the data corpus')
-parser.add_argument('--batch_size', type=int, default=96, help='batch size')
+parser.add_argument('--data', type=str, default='../../../data', help='location of the data corpus')
+parser.add_argument('--batch_size', type=int, default=32, help='batch size')
 parser.add_argument('--report_freq', type=float, default=50, help='report frequency')
 parser.add_argument('--gpu', type=int, default=0, help='gpu device id')
-parser.add_argument('--init_channels', type=int, default=36, help='num of init channels')
-parser.add_argument('--layers', type=int, default=20, help='total number of layers')
-parser.add_argument('--model_path', type=str, default='EXP/model.pt', help='path of pretrained model')
+parser.add_argument('--init_channels', type=int, default=16, help='num of init channels')
+parser.add_argument('--layers', type=int, default=8, help='total number of layers')
+parser.add_argument('--model_path', type=str, default='search-EXP-20210214-044323/weights1.pt', help='path of pretrained model')
 parser.add_argument('--auxiliary', action='store_true', default=False, help='use auxiliary tower')
 parser.add_argument('--cutout', action='store_true', default=False, help='use cutout')
 parser.add_argument('--cutout_length', type=int, default=16, help='cutout length')
-parser.add_argument('--drop_path_prob', type=float, default=0.2, help='drop path probability')
+parser.add_argument('--drop_path_prob', type=float, default=0.3, help='drop path probability')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--arch', type=str, default='DARTS', help='which architecture to use')
 args = parser.parse_args()
@@ -52,8 +55,12 @@ def main():
   torch.cuda.manual_seed(args.seed)
   logging.info('gpu device = %d' % args.gpu)
   logging.info("args = %s", args)
-
+##
   genotype = eval("genotypes.%s" % args.arch)
+  #genotype = Genotype(normal=[('sep_conv_5x5', 0), ('sep_conv_3x3', 1), ('max_pool_3x3', 2), ('skip_connect', 1), ('skip_connect', 1), ('sep_conv_5x5', 3), ('dil_conv_5x5', 0), ('dil_conv_5x5', 4)], normal_concat=range(2, 6), reduce=[('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_3x3', 2), ('sep_conv_3x3', 0), ('sep_conv_3x3', 0), ('max_pool_3x3', 1), ('avg_pool_3x3', 0), ('dil_conv_5x5', 2)], reduce_concat=range(2, 6))
+  #genotype = Genotype(normal=[('sep_conv_5x5', 0), ('sep_conv_3x3', 1), ('max_pool_3x3', 2), ('skip_connect', 1), ('skip_connect', 1), ('sep_conv_5x5', 3), ('dil_conv_5x5', 0), ('dil_conv_5x5', 4)], normal_concat=range(2, 6), reduce=[('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_3x3', 2), ('sep_conv_3x3', 0), ('sep_conv_3x3', 0), ('max_pool_3x3', 1), ('avg_pool_3x3', 0), ('dil_conv_5x5', 2)], reduce_concat=range(2, 6))
+  #genotype = Genotype(normal=[('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_5x5', 2), ('sep_conv_5x5', 3), ('sep_conv_3x3', 4), ('sep_conv_3x3', 3)], normal_concat=range(2, 6), reduce=[('max_pool_3x3', 0), ('sep_conv_5x5', 1), ('dil_conv_5x5', 2), ('max_pool_3x3', 0), ('max_pool_3x3', 0), ('sep_conv_5x5', 3), ('sep_conv_5x5', 3), ('max_pool_3x3', 0)], reduce_concat=range(2, 6))
+  #genotype = Genotype(normal=[('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_5x5', 1), ('sep_conv_5x5', 0), ('sep_conv_5x5', 2), ('sep_conv_5x5', 3), ('sep_conv_3x3', 4), ('sep_conv_3x3', 3)], normal_concat=range(2, 6), reduce=[('max_pool_3x3', 0), ('sep_conv_5x5', 1), ('dil_conv_5x5', 2), ('max_pool_3x3', 0), ('max_pool_3x3', 0), ('sep_conv_5x5', 3), ('sep_conv_5x5', 3), ('max_pool_3x3', 0)], reduce_concat=range(2, 6))
   model = Network(args.init_channels, CIFAR_CLASSES, args.layers, args.auxiliary, genotype)
   model = model.cuda()
   utils.load(model, args.model_path)
