@@ -35,7 +35,7 @@ parser.add_argument('--weight_decay', type=float,
 parser.add_argument('--report_freq', type=float,
                     default=50, help='report frequency')
 parser.add_argument('--gpu', type=str, default='0', help='gpu device id')
-parser.add_argument('--epochs', type=int, default=30,
+parser.add_argument('--epochs', type=int, default=45,
                     help='num of training epochs')
 parser.add_argument('--init_channels', type=int,
                     default=16, help='num of init channels')
@@ -63,11 +63,11 @@ parser.add_argument('--arch_weight_decay', type=float,
                     default=1e-3, help='weight decay for arch encoding')
 parser.add_argument('--is_parallel', type=int, default=0)
 parser.add_argument('--is_cifar100', type=int, default=0)
+parser.add_argument('--is_stl10', type=int, default=0)
 parser.add_argument('--weight_lambda', type=float, default=1.0)
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--pretrain_steps', type=int, default=5)
 parser.add_argument('--is_ab2', type=int, default=0)
-parser.add_argument('--disable_nas',type=bool,default=False)
 args = parser.parse_args()
 
 args.save = 'search-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
@@ -83,7 +83,7 @@ logging.getLogger().addHandler(fh)
 
 CIFAR_CLASSES = 10
 CIFAR100_CLASSES = 100
-
+STL_CLASSES = 10
 
 def initialize_alphas(steps=4):
     k = sum(1 for i in range(steps) for n in range(2 + i))
@@ -133,7 +133,14 @@ def main():
                                 args.layers, criterion)
       # important for initializing the two models differently.
       # model1.init_weights()
-    else:
+    else if args.is_stl10:
+      model = Network(args.init_channels, STL_CLASSES, args.layers, criterion)
+      model1 = Network(args.init_channels, STL_CLASSES, args.layers, criterion)
+      model_pretrain = Network(
+          args.init_channels, STL_CLASSES, args.layers, criterion)
+      model1_pretrain = Network(
+          args.init_channels, STL_CLASSES, args.layers, criterion)    
+    else 
       model = Network(args.init_channels, CIFAR_CLASSES, args.layers, criterion)
       model1 = Network(args.init_channels, CIFAR_CLASSES, args.layers, criterion)
       model_pretrain = Network(
@@ -194,11 +201,16 @@ def main():
 
     if args.is_cifar100:
       train_transform, valid_transform = utils._data_transforms_cifar100(args)
+    else if args.is_stl10:
+      train_transform, valid_transform = utils._data_transforms_stl10(args)
     else:
       train_transform, valid_transform = utils._data_transforms_cifar10(args)
     if args.is_cifar100:
       train_data = dset.CIFAR100(
-          root=args.data, train=True, download=False, transform=train_transform)
+          root=args.data, train=True, download=True, transform=train_transform)
+    else if args.is_stl10:
+      train_data = dset.STL0(
+          root=args.data, train=True, download=True, transform=train_transform)
     else:
       train_data = dset.CIFAR10(
           root=args.data, train=True, download=True, transform=train_transform)
@@ -295,8 +307,8 @@ def main():
                 criterion)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
-            utils.save(model, os.path.join(args.save, 'weights0_'+str(epoch)+'.pt'))
-            utils.save(model1, os.path.join(args.save, 'weights1_'+str(epoch)+'.pt'))
+            utils.save(model, os.path.join(args.save, 'weights.pt'))
+            utils.save(model1, os.path.join(args.save, 'weights1.pt'))
 
 
 def train(args,
