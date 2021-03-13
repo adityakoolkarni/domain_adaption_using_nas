@@ -333,19 +333,24 @@ def main():
         logging.info('TEST - learner 2 - test_acc_top5 %f', test_acc_top5)
         ###     
 
-        
 
-def test_infer(test_queue, model, criterion,args,epoch):
+
+        
+def test_infer(queue, model, model1, criterion,args,epoch):
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
-    model.eval()
+    objs1 = utils.AvgrageMeter()
+    top1_1 = utils.AvgrageMeter()
+    top5_1 = utils.AvgrageMeter()
 
-    for step, (input, target) in enumerate(test_queue):
-        device = "cuda:0"
-        input = input.to(device)
+    model.eval()
+    model1.eval()
+    with torch.no_grad():
+      for step, (input, target) in enumerate(queue):
+        input = input.cuda()
         target = target.cuda(non_blocking=True)
-        
+
         logits = model(input)
         loss = criterion(logits, target)
 
@@ -355,14 +360,30 @@ def test_infer(test_queue, model, criterion,args,epoch):
         top1.update(prec1.item(), n)
         top5.update(prec5.item(), n)
 
-        if step % args.report_freq == 0:
-            logging.info('test %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
-            args.test_writer.add_scalar('TestLoss', objs.avg, epoch*len(test_queue) + step)
-            args.test_writer.add_scalar('TestAccuracy/Top1', top1.avg, epoch*len(test_queue) + step)
-            args.test_writer.add_scalar('TestAccuracy/Top5', top5.avg, epoch*len(test_queue) + step)
-            
+        # for the second model.
+        logits = model1(input)
+        loss = criterion(logits, target)
 
-    return top1.avg, top5.avg, objs.avg
+        prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
+        objs1.update(loss.item(), n)
+        top1_1.update(prec1.item(), n)
+        top5_1.update(prec5.item(), n)
+        if step % args.report_freq == 0:
+          logging.info('test 1st %03d %e %f %f', step,
+                       objs.avg, top1.avg, top5.avg)
+          logging.info('test 2nd %03d %e %f %f', step,
+                       objs1.avg, top1_1.avg, top5_1.avg)
+          args.valid_writer.add_scalar('Model_0/TestLoss', objs.avg, epoch*len(queue) + step)
+          args.valid_writer.add_scalar('Model_0/TestAccuracy/Top1', top1.avg, epoch*len(queue) + step)
+          args.valid_writer.add_scalar('Model_0/TestAccuracy/Top5', top5.avg, epoch*len(queue) + step)
+          
+          
+          args.valid_writer.add_scalar('Model_1/TestLoss', objs1.avg, epoch*len(queue) + step)
+          args.valid_writer.add_scalar('Model_1/TestAccuracy/Top1', top1_1.avg, epoch*len(queue) + step)
+          args.valid_writer.add_scalar('Model_1/TestAccuracy/Top5', top5_1.avg, epoch*len(queue) + step)
+
+    return top1.avg, objs.avg, top1_1.avg, objs1.avg
+
 
 def train(args,
           epoch,
