@@ -166,7 +166,9 @@ def main():
     #   model = nn.parallel.DataParallel(
     #       model, device_ids=gpus, output_device=gpus[0])
     #   model = model.module
-
+    
+    
+        
     optimizer = torch.optim.SGD(
         model.parameters(),
         args.learning_rate,
@@ -201,7 +203,13 @@ def main():
     else:
       train_data = dset.CIFAR10(
           root=args.data, train=True, download=True, transform=train_transform)
-
+    
+    #load training data
+    test_transform, valid_transform = utils._data_transforms_cifar10(args)
+    test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
+    
+    
+    
     num_train = len(train_data)
     indices = list(range(num_train))
     split = int(np.floor(args.train_portion * num_train))
@@ -296,10 +304,8 @@ def main():
 
             utils.save(model, os.path.join(args.save, 'weights.pt'))
             utils.save(model1, os.path.join(args.save, 'weights1.pt'))
-
-        # test
-        test_transform, valid_transform = utils._data_transforms_cifar10(args)
-        test_data = dset.STL10(root=args.data, train=True, download=True, transform=test_transform)
+        
+        # test     
         num_test = len(test_data)
         test_queue = torch.utils.data.DataLoader(
             test_data, batch_size=args.batch_size,
@@ -314,6 +320,9 @@ def main():
         test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model1, criterion)
         logging.info('TEST - learner 2 - test_acc_top1 %f', test_acc_top1)
         logging.info('TEST - learner 2 - test_acc_top5 %f', test_acc_top5)
+        ###     
+
+        
 
 def test_infer(test_queue, model, criterion):
     objs = utils.AvgrageMeter()
@@ -322,18 +331,18 @@ def test_infer(test_queue, model, criterion):
     model.eval()
 
     for step, (input, target) in enumerate(test_queue):
-        device = "gpu:0"
+        device = "cuda:0"
         input = input.to(device)
         target = target.cuda(non_blocking=True)
-
-        logits, _ = model(input)
+        
+        logits = model(input)
         loss = criterion(logits, target)
 
         prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
         n = input.size(0)
-        objs.update(loss.data[0], n)
-        top1.update(prec1.data[0], n)
-        top5.update(prec5.data[0], n)
+        objs.update(loss.item(), n)
+        top1.update(prec1.item(), n)
+        top5.update(prec5.item(), n)
 
         if step % args.report_freq == 0:
             logging.info('test %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
