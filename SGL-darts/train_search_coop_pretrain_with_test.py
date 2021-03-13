@@ -217,8 +217,7 @@ def main():
     #load training data
     test_transform, valid_transform = utils._data_transforms_cifar10(args)
     test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
-    
-    
+       
     
     num_train = len(train_data)
     indices = list(range(num_train))
@@ -323,15 +322,15 @@ def main():
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
                 list(range(num_test))),
             pin_memory=False, num_workers=4)
+    
+    
+        l1_test_acc_top1, l1_obj, l2_test_acc_top1, l2_obj = test_infer(test_queue, model, model1, criterion,args,epoch)
+        logging.info('TEST - learner 1 - test_acc_top1 %f', l1_test_acc_top1)
+        logging.info('TEST - learner 1 - test_acc_obj %f', l1_obj)
+        logging.info('TEST - learner 2 - test_acc_top1 %f', l2_test_acc_top1)
+        logging.info('TEST - learner 2 - test_acc_obj %f', l2_obj)
 
-        test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model, criterion,args,epoch)
-        logging.info('TEST - learner 1 - test_acc_top1 %f', test_acc_top1)
-        logging.info('TEST - learner 1 - test_acc_top5 %f', test_acc_top5)
-
-        test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model1, criterion,args,epoch)
-        logging.info('TEST - learner 2 - test_acc_top1 %f', test_acc_top1)
-        logging.info('TEST - learner 2 - test_acc_top5 %f', test_acc_top5)
-        ###     
+        ### 
 
 
 
