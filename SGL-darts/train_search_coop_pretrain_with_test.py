@@ -357,9 +357,9 @@ def test_infer(test_queue, model, criterion,args,epoch):
 
         if step % args.report_freq == 0:
             logging.info('test %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
-            args.test_writer('TestLoss', objs.avg, epoch*len(test_queue) + step)
-            args.test_writer('TestAccuracy/Top1', top1.avg, epoch*len(test_queue) + step)
-            args.test_writer('TestAccuracy/Top5', top5.avg, epoch*len(test_queue) + step)
+            args.test_writer.add_scalar('TestLoss', objs.avg, epoch*len(test_queue) + step)
+            args.test_writer.add_scalar('TestAccuracy/Top1', top1.avg, epoch*len(test_queue) + step)
+            args.test_writer.add_scalar('TestAccuracy/Top5', top5.avg, epoch*len(test_queue) + step)
             
 
     return top1.avg, top5.avg, objs.avg
@@ -504,14 +504,14 @@ def train(args,
                        objs.avg, top1.avg, top5.avg)
           logging.info('train 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
-          args.train_writer('Model_0/TrainLoss', objs.avg, epoch*len(train_queue) + step)
-          args.train_writer('Model_0/TrainAccuracyTop1', top1.avg, epoch*len(train_queue) + step)
-          args.train_writer('Model_0/TrainAccuracyTop5', top5.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_0/TrainLoss', objs.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_0/TrainAccuracyTop1', top1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_0/TrainAccuracyTop5', top5.avg, epoch*len(train_queue) + step)
           
           
-          args.train_writer('Model_1/TrainLoss', objs1.avg, epoch*len(train_queue) + step)
-          args.train_writer('Model_1/TrainAccuracyTop1', top1_1.avg, epoch*len(train_queue) + step)
-          args.train_writer('Model_1/TrainAccuracyTop5', top5_1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_1/TrainLoss', objs1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_1/TrainAccuracyTop1', top1_1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_1/TrainAccuracyTop5', top5_1.avg, epoch*len(train_queue) + step)
         # return top1.avg, objs.avg, top1_1.avg, objs1.avg
       else:
         assert (model_pretrain._arch_parameters[0]
@@ -557,14 +557,14 @@ def train(args,
           logging.info('pretrain 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
           
-          args.train_writer('Model_0/PreTrainLoss', objs.avg, epoch*len(test_queue) + step)
-          args.train_writer('Model_0/PreTrainAccuracyTop1', top1.avg, epoch*len(test_queue) + step)
-          args.train_writer('Model_0/PreTrainAccuracyTop5', top5.avg, epoch*len(test_queue) + step)
+          args.train_writer.add_scalar('Model_0/PreTrainLoss', objs.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_0/PreTrainAccuracyTop1', top1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_0/PreTrainAccuracyTop5', top5.avg, epoch*len(train_queue) + step)
           
           
-          args.train_writer('Model_1/PreTrainLoss', objs1.avg, epoch*len(test_queue) + step)
-          args.train_writer('Model_1/PreTrainAccuracyTop1', top1_1.avg, epoch*len(test_queue) + step)
-          args.train_writer('Model_1/PreTrainAccuracyTop5', top5_1.avg, epoch*len(test_queue) + step)
+          args.train_writer.add_scalar('Model_1/PreTrainLoss', objs1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_1/PreTrainAccuracyTop1', top1_1.avg, epoch*len(train_queue) + step)
+          args.train_writer.add_scalar('Model_1/PreTrainAccuracyTop5', top5_1.avg, epoch*len(train_queue) + step)
   return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
 
@@ -605,14 +605,14 @@ def infer(valid_queue, model, model1, criterion,args,epoch):
                        objs.avg, top1.avg, top5.avg)
           logging.info('valid 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
-          args.valid_writer('Model_0/ValLoss', objs.avg, epoch*len(valid_queue) + step)
-          args.valid_writer('Model_0/ValAccuracyTop1', top1.avg, epoch*len(valid_queue) + step)
-          args.valid_writer('Model_0/ValAccuracyTop5', top5.avg, epoch*len(valid_queue) + step)
+          args.valid_writer.add_scalar('Model_0/ValLoss', objs.avg, epoch*len(valid_queue) + step)
+          args.valid_writer.add_scalar('Model_0/ValAccuracyTop1', top1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer.add_scalar('Model_0/ValAccuracyTop5', top5.avg, epoch*len(valid_queue) + step)
           
           
-          args.valid_writer('Model_1/ValLoss', objs1.avg, epoch*len(valid_queue) + step)
-          args.valid_writer('Model_1/ValAccuracyTop1', top1_1.avg, epoch*len(valid_queue) + step)
-          args.valid_writer('Model_1/ValAccuracyTop5', top5_1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer.add_scalar('Model_1/ValLoss', objs1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer.add_scalar('Model_1/ValAccuracyTop1', top1_1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer.add_scalar('Model_1/ValAccuracyTop5', top5_1.avg, epoch*len(valid_queue) + step)
 
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
