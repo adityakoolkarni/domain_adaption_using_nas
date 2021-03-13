@@ -12,6 +12,7 @@ import torch.utils
 import torch.nn.functional as F
 import torchvision.datasets as dset
 import torch.backends.cudnn as cudnn
+from torch.utils.tensorboard import SummaryWriter
 
 from torch.autograd import Variable
 from model_search_pretrain import Network
@@ -104,6 +105,15 @@ def main():
       logging.info('no gpu device available')
       sys.exit(1)
 
+      
+      
+    ## Logging Code
+    train_writer = SummaryWriter(log_dir=os.path.join(args.save,'train'))
+    valid_writer = SummaryWriter(log_dir=os.path.join(args.save,'valid'))
+    test_writer = SummaryWriter(log_dir=os.path.join(args.save,'test'))
+    args.train_writer = train_writer
+    args.valid_writer = valid_writer
+    args.test_writer = test_writer
     np.random.seed(args.seed)
     if not args.is_parallel:
       torch.cuda.set_device(int(args.gpu))
@@ -299,7 +309,8 @@ def main():
                 valid_queue,
                 model,
                 model1,
-                criterion)
+                criterion,
+                epoch)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
             utils.save(model, os.path.join(args.save, 'weights.pt'))
@@ -313,18 +324,18 @@ def main():
                 list(range(num_test))),
             pin_memory=False, num_workers=4)
 
-        test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model, criterion)
+        test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model, criterion,args,epoch)
         logging.info('TEST - learner 1 - test_acc_top1 %f', test_acc_top1)
         logging.info('TEST - learner 1 - test_acc_top5 %f', test_acc_top5)
 
-        test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model1, criterion)
+        test_acc_top1, test_acc_top5, test_obj = test_infer(test_queue, model1, criterion,args,epoch)
         logging.info('TEST - learner 2 - test_acc_top1 %f', test_acc_top1)
         logging.info('TEST - learner 2 - test_acc_top5 %f', test_acc_top5)
         ###     
 
         
 
-def test_infer(test_queue, model, criterion):
+def test_infer(test_queue, model, criterion,args,epoch):
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
@@ -346,6 +357,10 @@ def test_infer(test_queue, model, criterion):
 
         if step % args.report_freq == 0:
             logging.info('test %03d %e %f %f', step, objs.avg, top1.avg, top5.avg)
+            args.test_writer('TestLoss', objs.avg, epoch*len(test_queue) + step)
+            args.test_writer('TestAccuracy/Top1', top1.avg, epoch*len(test_queue) + step)
+            args.test_writer('TestAccuracy/Top5', top5.avg, epoch*len(test_queue) + step)
+            
 
     return top1.avg, top5.avg, objs.avg
 
@@ -489,6 +504,14 @@ def train(args,
                        objs.avg, top1.avg, top5.avg)
           logging.info('train 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
+          args.train_writer('Model_0/TrainLoss', objs.avg, epoch*len(train_queue) + step)
+          args.train_writer('Model_0/TrainAccuracyTop1', top1.avg, epoch*len(train_queue) + step)
+          args.train_writer('Model_0/TrainAccuracyTop5', top5.avg, epoch*len(train_queue) + step)
+          
+          
+          args.train_writer('Model_1/TrainLoss', objs1.avg, epoch*len(train_queue) + step)
+          args.train_writer('Model_1/TrainAccuracyTop1', top1_1.avg, epoch*len(train_queue) + step)
+          args.train_writer('Model_1/TrainAccuracyTop5', top5_1.avg, epoch*len(train_queue) + step)
         # return top1.avg, objs.avg, top1_1.avg, objs1.avg
       else:
         assert (model_pretrain._arch_parameters[0]
@@ -533,10 +556,19 @@ def train(args,
                        objs.avg, top1.avg, top5.avg)
           logging.info('pretrain 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
+          
+          args.train_writer('Model_0/PreTrainLoss', objs.avg, epoch*len(test_queue) + step)
+          args.train_writer('Model_0/PreTrainAccuracyTop1', top1.avg, epoch*len(test_queue) + step)
+          args.train_writer('Model_0/PreTrainAccuracyTop5', top5.avg, epoch*len(test_queue) + step)
+          
+          
+          args.train_writer('Model_1/PreTrainLoss', objs1.avg, epoch*len(test_queue) + step)
+          args.train_writer('Model_1/PreTrainAccuracyTop1', top1_1.avg, epoch*len(test_queue) + step)
+          args.train_writer('Model_1/PreTrainAccuracyTop5', top5_1.avg, epoch*len(test_queue) + step)
   return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
 
-def infer(valid_queue, model, model1, criterion):
+def infer(valid_queue, model, model1, criterion,args,epoch):
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
@@ -573,6 +605,14 @@ def infer(valid_queue, model, model1, criterion):
                        objs.avg, top1.avg, top5.avg)
           logging.info('valid 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
+          args.valid_writer('Model_0/ValLoss', objs.avg, epoch*len(valid_queue) + step)
+          args.valid_writer('Model_0/ValAccuracyTop1', top1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer('Model_0/ValAccuracyTop5', top5.avg, epoch*len(valid_queue) + step)
+          
+          
+          args.valid_writer('Model_1/ValLoss', objs1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer('Model_1/ValAccuracyTop1', top1_1.avg, epoch*len(valid_queue) + step)
+          args.valid_writer('Model_1/ValAccuracyTop5', top5_1.avg, epoch*len(valid_queue) + step)
 
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
