@@ -23,7 +23,7 @@ from genotypes import PRIMITIVES
 parser = argparse.ArgumentParser("cifar")
 parser.add_argument('--data', type=str, default='../data',
                     help='location of the data corpus')
-parser.add_argument('--batch_size', type=int, default=64, help='batch size')
+parser.add_argument('--batch_size', type=int, default=10, help='batch size')
 parser.add_argument('--learning_rate', type=float,
                     default=0.025, help='init learning rate')
 parser.add_argument('--learning_rate1', type=float,
@@ -309,6 +309,7 @@ def main():
                 model,
                 model1,
                 criterion,
+                args,
                 epoch)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
@@ -372,14 +373,14 @@ def test_infer(queue, model, model1, criterion,args,epoch):
                        objs.avg, top1.avg, top5.avg)
           logging.info('test 2nd %03d %e %f %f', step,
                        objs1.avg, top1_1.avg, top5_1.avg)
-          args.valid_writer.add_scalar('Model_0/TestLoss', objs.avg, epoch*len(queue) + step)
-          args.valid_writer.add_scalar('Model_0/TestAccuracy/Top1', top1.avg, epoch*len(queue) + step)
-          args.valid_writer.add_scalar('Model_0/TestAccuracy/Top5', top5.avg, epoch*len(queue) + step)
+          args.test_writer.add_scalar('Model_0/TestLoss', objs.avg, epoch*len(queue) + step)
+          args.test_writer.add_scalar('Model_0/TestAccuracy/Top1', top1.avg, epoch*len(queue) + step)
+          args.test_writer.add_scalar('Model_0/TestAccuracy/Top5', top5.avg, epoch*len(queue) + step)
           
           
-          args.valid_writer.add_scalar('Model_1/TestLoss', objs1.avg, epoch*len(queue) + step)
-          args.valid_writer.add_scalar('Model_1/TestAccuracy/Top1', top1_1.avg, epoch*len(queue) + step)
-          args.valid_writer.add_scalar('Model_1/TestAccuracy/Top5', top5_1.avg, epoch*len(queue) + step)
+          args.test_writer.add_scalar('Model_1/TestLoss', objs1.avg, epoch*len(queue) + step)
+          args.test_writer.add_scalar('Model_1/TestAccuracy/Top1', top1_1.avg, epoch*len(queue) + step)
+          args.test_writer.add_scalar('Model_1/TestAccuracy/Top5', top5_1.avg, epoch*len(queue) + step)
 
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
