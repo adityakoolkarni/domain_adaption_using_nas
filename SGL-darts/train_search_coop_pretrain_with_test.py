@@ -313,8 +313,12 @@ def main():
                 epoch)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
-            utils.save(model, os.path.join(args.save, 'weights.pt'))
-            utils.save(model1, os.path.join(args.save, 'weights1.pt'))
+            utils.save(model, os.path.join(args.save, 'weights0_'+str(epoch)+'.pt'))
+            utils.save(model1, os.path.join(args.save, 'weights1_'+str(epoch)+'.pt'))
+            torch.save(alphas_reduce1, 'alphas_reduce1_'+str(epoch)+'.pt')
+            torch.save(alphas_normal1, 'alphas_normal1_'+str(epoch)+'.pt')
+            torch.save(alphas_reduce2, 'alphas_reduce2_'+str(epoch)+'.pt')
+            torch.save(alphas_normal2, 'alphas_normal2_'+str(epoch)+'.pt')
         
         # test     
         num_test = len(test_data)
