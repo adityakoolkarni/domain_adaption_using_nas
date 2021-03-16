@@ -17,7 +17,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 from model_search_pretrain import Network
 from architect_coop_pretrain import Architect, softXEnt
-from genotypes import PRIMITIVES
+#from genotypes import PRIMITIVES
+from genotypes import PRIMITIVES_LIGHT as PRIMITIVES
 
 parser = argparse.ArgumentParser("cifar")
 parser.add_argument('--data', type=str, default='../data',
@@ -192,7 +193,8 @@ def main():
     # load target domain - train,test data
     test_transform, valid_transform = utils._data_transforms_cifar10(args) #same transform applicable for stl-10
     target_domain_data = dset.STL10(root=args.data, split='train', download=True, transform=test_transform)
-    target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
+    #target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
+    target_domain_test_data = target_domain_data ## test on same images that were used in training! No labels are involved
 
     num_train = len(train_data)
     indices = list(range(num_train))
@@ -290,12 +292,14 @@ def main():
                 epoch)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
-            utils.save(model, os.path.join(args.save, 'weights0_' + str(epoch) + '.pt'))
-            utils.save(model1, os.path.join(args.save, 'weights1_' + str(epoch) + '.pt'))
-            torch.save(alphas_reduce1, 'alphas_reduce1_' + str(epoch) + '.pt')
-            torch.save(alphas_normal1, 'alphas_normal1_' + str(epoch) + '.pt')
-            torch.save(alphas_reduce2, 'alphas_reduce2_' + str(epoch) + '.pt')
-            torch.save(alphas_normal2, 'alphas_normal2_' + str(epoch) + '.pt')
+
+            if epoch % 5 == 0:
+                utils.save(model, os.path.join(args.save, 'weights0_' + str(epoch) + '.pt'))
+                utils.save(model1, os.path.join(args.save, 'weights1_' + str(epoch) + '.pt'))
+                torch.save(alphas_reduce1, 'alphas_reduce1_' + str(epoch) + '.pt')
+                torch.save(alphas_normal1, 'alphas_normal1_' + str(epoch) + '.pt')
+                torch.save(alphas_reduce2, 'alphas_reduce2_' + str(epoch) + '.pt')
+                torch.save(alphas_normal2, 'alphas_normal2_' + str(epoch) + '.pt')
 
         # test
         num_test = len(target_domain_test_data)
@@ -486,13 +490,19 @@ def train(args,
             nn.utils.clip_grad_norm_(model1.parameters(), args.grad_clip)
             optimizer.step()
             optimizer1.step()
-
-            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
+            
+            ##Plotting the overall loss - Including both source domain and target domain
+            logits_merged = torch.cat((logits,external_out),dim=0)
+            target_merged = torch.cat((target,softlabel_other1.argmax(dim=1)),dim=0)
+            prec1, prec5 = utils.accuracy(logits_merged, target_merged, topk=(1, 5))
             objs.update(loss.item(), n)
             top1.update(prec1.item(), n)
             top5.update(prec5.item(), n)
 
-            prec1, prec5 = utils.accuracy(logits1, target, topk=(1, 5))
+            ##Plotting the overall loss - Including both source domain and target domain
+            logits1_merged = torch.cat((logits1,external_out1),dim=0)
+            target1_merged = torch.cat((target,softlabel_other.argmax(dim=1)),dim=0)
+            prec1, prec5 = utils.accuracy(logits1_merged, target1_merged, topk=(1, 5))
             objs1.update(loss1.item(), n)
             top1_1.update(prec1.item(), n)
             top5_1.update(prec5.item(), n)

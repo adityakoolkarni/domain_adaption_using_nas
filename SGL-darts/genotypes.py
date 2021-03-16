@@ -13,6 +13,14 @@ PRIMITIVES = [
     'dil_conv_5x5'
 ]
 
+PRIMITIVES_LIGHT = [
+    'none',
+    'avg_pool_3x3',
+    'skip_connect',
+    'sep_conv_3x3',
+    'dil_conv_3x3',
+]
+
 PDARTS_TS_CIFAR10 = Genotype(
     normal=[('sep_conv_3x3', 0), 
     ('sep_conv_3x3', 1), 

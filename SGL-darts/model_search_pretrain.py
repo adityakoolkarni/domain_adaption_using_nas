@@ -4,11 +4,18 @@ import torch.nn.functional as F
 from operations import *
 import numpy as np
 from torch.autograd import Variable
-from genotypes import PRIMITIVES
+#from genotypes import PRIMITIVES
+from genotypes import PRIMITIVES_LIGHT as PRIMITIVES
 from genotypes import Genotype
 from mmcv.cnn import xavier_init
 
+print("**"*30)
+print("Using lesser Primitives")
+for primitive in PRIMITIVES:
+    print(primitive)
 
+print("Using lesser Primitives")
+print("**"*30)
 class MixedOp(nn.Module):
 
   def __init__(self, C, stride):
