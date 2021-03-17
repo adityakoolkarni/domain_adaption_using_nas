@@ -36,7 +36,7 @@ parser.add_argument('--weight_decay', type=float,
 parser.add_argument('--report_freq', type=float,
                     default=50, help='report frequency')
 parser.add_argument('--gpu', type=str, default='0', help='gpu device id')
-parser.add_argument('--epochs', type=int, default=30,
+parser.add_argument('--epochs', type=int, default=50,
                     help='num of training epochs')
 parser.add_argument('--init_channels', type=int,
                     default=16, help='num of init channels')
@@ -195,7 +195,8 @@ def main():
     target_domain_data = dset.STL10(root=args.data, split='train', download=True, transform=test_transform)
     #target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
     target_domain_test_data = target_domain_data ## test on same images that were used in training! No labels are involved
-
+    source_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
+    
     num_train = len(train_data)
     indices = list(range(num_train))
     split = int(np.floor(args.train_portion * num_train))
@@ -293,7 +294,7 @@ def main():
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
 
 
-            if epoch % 5 == 0:
+            if epoch % 10 == 0:
                 utils.save(model, os.path.join(args.save, 'weights0_' + str(epoch) + '.pt'))
                 utils.save(model1, os.path.join(args.save, 'weights1_' + str(epoch) + '.pt'))
                 torch.save(alphas_reduce1, 'alphas_reduce1_' + str(epoch) + '.pt')
@@ -301,31 +302,50 @@ def main():
                 torch.save(alphas_reduce2, 'alphas_reduce2_' + str(epoch) + '.pt')
                 torch.save(alphas_normal2, 'alphas_normal2_' + str(epoch) + '.pt')
 
-        # test
-        num_test = len(target_domain_test_data)
-        test_queue = torch.utils.data.DataLoader(
+        # test on target domain data
+        target_num_test = len(target_domain_test_data)
+        target_test_queue = torch.utils.data.DataLoader(
             target_domain_test_data, batch_size=args.batch_size,
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
-                list(range(num_test))),
+                list(range(target_num_test))),
             pin_memory=False, num_workers=4)
+        
+        target_l1_test_acc_top1, target_l1_obj, target_l2_test_acc_top1, target_l2_obj = test_infer(target_test_queue, model, model1, criterion, args, epoch, 1)
+        logging.info('TARGET TEST - learner 1 - test_acc_top1 %f', target_l1_test_acc_top1)
+        logging.info('TARGET TEST - learner 1 - test_acc_obj %f', target_l1_obj)
+        logging.info('TARGET TEST - learner 2 - test_acc_top1 %f', target_l2_test_acc_top1)
+        logging.info('TARGET TEST - learner 2 - test_acc_obj %f', target_l2_obj)
+        
+        # test on source domain data
+        source_num_test = len(source_domain_test_data)
+        source_test_queue = torch.utils.data.DataLoader(
+            source_domain_test_data, batch_size=args.batch_size,
+            sampler=torch.utils.data.sampler.SubsetRandomSampler(
+                list(range(source_num_test))),
+            pin_memory=False, num_workers=4)
+        
+        source_l1_test_acc_top1, source_l1_obj, source_l2_test_acc_top1, source_l2_obj = test_infer(source_test_queue, model, model1, criterion, args, epoch, 0)
+        logging.info('SOURCE TEST - learner 1 - test_acc_top1 %f', source_l1_test_acc_top1)
+        logging.info('SOURCE TEST - learner 1 - test_acc_obj %f', source_l1_obj)
+        logging.info('SOURCE TEST - learner 2 - test_acc_top1 %f', source_l2_test_acc_top1)
+        logging.info('SOURCE TEST - learner 2 - test_acc_obj %f', source_l2_obj)
+        ############
+        
 
-        l1_test_acc_top1, l1_obj, l2_test_acc_top1, l2_obj = test_infer(test_queue, model, model1, criterion, args,
-                                                                        epoch)
-        logging.info('TEST - learner 1 - test_acc_top1 %f', l1_test_acc_top1)
-        logging.info('TEST - learner 1 - test_acc_obj %f', l1_obj)
-        logging.info('TEST - learner 2 - test_acc_top1 %f', l2_test_acc_top1)
-        logging.info('TEST - learner 2 - test_acc_obj %f', l2_obj)
-        ###
 
-
-def test_infer(queue, model, model1, criterion, args, epoch):
+def test_infer(queue, model, model1, criterion, args, epoch, is_target_data):
     objs = utils.AvgrageMeter()
     top1 = utils.AvgrageMeter()
     top5 = utils.AvgrageMeter()
     objs1 = utils.AvgrageMeter()
     top1_1 = utils.AvgrageMeter()
     top5_1 = utils.AvgrageMeter()
-
+    
+    if(is_target_data):
+        test_domain = 'Target'
+    else:
+        test_domain = 'Source'
+        
     model.eval()
     model1.eval()
     with torch.no_grad():
@@ -355,14 +375,14 @@ def test_infer(queue, model, model1, criterion, args, epoch):
                              objs.avg, top1.avg, top5.avg)
                 logging.info('test 2nd %03d %e %f %f', step,
                              objs1.avg, top1_1.avg, top5_1.avg)
-                args.test_writer.add_scalar('Model_0/TestLoss', objs.avg, epoch * len(queue) + step)
-                args.test_writer.add_scalar('Model_0/TestAccuracy/Top1', top1.avg, epoch * len(queue) + step)
-                args.test_writer.add_scalar('Model_0/TestAccuracy/Top5', top5.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_0/TestLoss', objs.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_0/TestAccuracyTop1', top1.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_0/TestAccuracyTop5', top5.avg, epoch * len(queue) + step)
 
-                args.test_writer.add_scalar('Model_1/TestLoss', objs1.avg, epoch * len(queue) + step)
-                args.test_writer.add_scalar('Model_1/TestAccuracy/Top1', top1_1.avg, epoch * len(queue) + step)
-                args.test_writer.add_scalar('Model_1/TestAccuracy/Top5', top5_1.avg, epoch * len(queue) + step)
-
+                args.test_writer.add_scalar(test_domain+'Model_1/TestLoss', objs1.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_1/TestAccuracyTop1', top1_1.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_1/TestAccuracyTop5', top5_1.avg, epoch * len(queue) + step)
+                
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
 
@@ -495,7 +515,10 @@ def train(args,
             logits_merged = torch.cat((logits,external_out),dim=0)
             target_merged = torch.cat((target,softlabel_other1.argmax(dim=1)),dim=0)
             prec1, prec5 = utils.accuracy(logits_merged, target_merged, topk=(1, 5))
-            objs.update(loss.item(), n)
+            
+            loss_merged = (loss + args.weight_lambda *loss_soft1)
+            
+            objs.update(loss_merged.item(), n)
             top1.update(prec1.item(), n)
             top5.update(prec5.item(), n)
 
@@ -503,7 +526,10 @@ def train(args,
             logits1_merged = torch.cat((logits1,external_out1),dim=0)
             target1_merged = torch.cat((target,softlabel_other.argmax(dim=1)),dim=0)
             prec1, prec5 = utils.accuracy(logits1_merged, target1_merged, topk=(1, 5))
-            objs1.update(loss1.item(), n)
+            
+            loss_merged1 = (loss1 + args.weight_lambda *loss_soft)
+            
+            objs1.update(loss_merged1.item(), n)
             top1_1.update(prec1.item(), n)
             top5_1.update(prec5.item(), n)
 
