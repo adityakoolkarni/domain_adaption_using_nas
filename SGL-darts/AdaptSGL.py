@@ -195,7 +195,7 @@ def main():
     target_domain_data = dset.STL10(root=args.data, split='train', download=True, transform=test_transform)
     # target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
     target_domain_test_data = target_domain_data  ## test on same images that were used in training! No labels are involved
-    source_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
+    source_domain_test_data = dset.CIFAR10(root=args.data, split='test', download=True, transform=test_transform)
 
     num_train = len(train_data)
     indices = list(range(num_train))
