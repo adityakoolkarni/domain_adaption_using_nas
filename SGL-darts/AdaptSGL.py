@@ -423,7 +423,7 @@ def train(args,
             pretrain_external_out = model_pretrain(input_external)
             pretrain_external_out1 = model1_pretrain(input_external)
 
-            mmd_loss, mmd_loss1 = calculate_mmd(logits, logits1, pretrain_external_out, pretrain_external_out1, 10)
+            mmd_loss, mmd_loss1 = calculate_mmd(logits, logits1, pretrain_external_out, pretrain_external_out1)
             loss = loss + loss1 + args.mmd_lambda *(mmd_loss + mmd_loss1)
 
             loss.backward()
@@ -449,7 +449,7 @@ def train(args,
 
             loss_soft1 = softXEnt(external_out, softlabel_other1)
 
-            mmd, mmd1 = calculate_mmd(logits, logits1, external_out, external_out1, 10)
+            mmd, mmd1 = calculate_mmd(logits, logits1, external_out, external_out1)
 
             if args.is_ab2:
                 loss_all = args.weight_lambda * (loss_soft1 + loss_soft) + args.mmd_lambda*(mmd1 + mmd)
@@ -556,7 +556,7 @@ def train(args,
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
 
-def calculate_mmd(model0_source_feature, model0_target_feature, model1_source_feature, model1_target_feature, weight_mmd):
+def calculate_mmd(model0_source_feature, model0_target_feature, model1_source_feature, model1_target_feature):
     data_source_domain = model0_source_feature
     data_source_domain1 = model1_source_feature
 
@@ -589,8 +589,8 @@ def calculate_mmd(model0_source_feature, model0_target_feature, model1_source_fe
     beta = (1. / (B * (B - 1)))
     gamma = (2. / (B * B))
 
-    mmd = weight_mmd * beta * (torch.sum(K) + torch.sum(L)) - gamma * torch.sum(P)
-    mmd1 = weight_mmd * beta * (torch.sum(K1) + torch.sum(L1)) - gamma * torch.sum(P1)
+    mmd =  beta * (torch.sum(K) + torch.sum(L)) - gamma * torch.sum(P)
+    mmd1 =  beta * (torch.sum(K1) + torch.sum(L1)) - gamma * torch.sum(P1)
 
     return mmd, mmd1
 
