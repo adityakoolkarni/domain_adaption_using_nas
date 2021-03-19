@@ -196,7 +196,7 @@ def main():
     #target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
     target_domain_test_data = target_domain_data ## test on same images that were used in training! No labels are involved
     source_domain_test_data = dset.CIFAR10(root=args.data, split='test', download=True, transform=test_transform)
-    
+
     num_train = len(train_data)
     indices = list(range(num_train))
     split = int(np.floor(args.train_portion * num_train))
@@ -205,12 +205,12 @@ def main():
     train_queue = torch.utils.data.DataLoader(
         train_data, batch_size=args.batch_size,
         sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
-        pin_memory=False, num_workers=4)
+        pin_memory=False, num_workers=4, drop_last=True)
 
     external_queue = torch.utils.data.DataLoader(
         target_domain_data, batch_size=args.batch_size,
         sampler=torch.utils.data.sampler.SubsetRandomSampler(target_domain_indices),
-        pin_memory=False, num_workers=4)
+        pin_memory=False, num_workers=4, drop_last=True)
 
     valid_queue = torch.utils.data.DataLoader(
         train_data, batch_size=args.batch_size,
@@ -499,11 +499,48 @@ def train(args,
             #   softlabel_other1 = F.softmax(external_out1, 1)
 
             loss_soft1 = softXEnt(external_out, softlabel_other1)
-            args.weight_lambda = (epoch-args.pretrain_steps+1) / args.epochs #linear scaling of weight
+
+            # MMD
+            data_source_domain = logits
+            data_source_domain1 = logits1
+
+            data_target_domain = external_out
+            data_target_domain1 = external_out
+
+            # print('shape:', data_source_domain.shape, data_target_domain.shape)
+            # print(data_source_domain, data_target_domain)
+
+            xx, yy, zz = torch.mm(data_source_domain,data_source_domain.t()), torch.mm(data_target_domain,data_target_domain.t()), torch.mm(data_source_domain,data_target_domain.t())
+            xx1, yy1, zz1 = torch.mm(data_source_domain1,data_source_domain1.t()), torch.mm(data_target_domain1,data_target_domain1.t()), torch.mm(data_source_domain1,data_target_domain1.t())
+
+            rx = (xx.diag().unsqueeze(0).expand_as(xx))
+            ry = (yy.diag().unsqueeze(0).expand_as(yy))
+
+            rx1 = (xx1.diag().unsqueeze(0).expand_as(xx1))
+            ry1 = (yy1.diag().unsqueeze(0).expand_as(yy1))
+
+            alpha = 0.1
+            K = torch.exp(- alpha * (rx.t() + rx - 2*xx))
+            L = torch.exp(- alpha * (ry.t() + ry - 2*yy))
+            P = torch.exp(- alpha * (rx.t() + ry - 2*zz))
+
+            K1 = torch.exp(- alpha * (rx1.t() + rx1 - 2*xx1))
+            L1 = torch.exp(- alpha * (ry1.t() + ry1 - 2*yy1))
+            P1 = torch.exp(- alpha * (rx1.t() + ry1 - 2*zz1))
+
+            B = logits.size(0)
+            beta = (1./(B*(B-1)))
+            gamma = (2./(B*B)) 
+            # print('B, beta, gamma', B, beta, gamma)
+
+            weight_mmd = 10.
+            mmd = weight_mmd * beta * (torch.sum(K)+torch.sum(L)) - gamma * torch.sum(P)
+            mmd1 = weight_mmd * beta * (torch.sum(K1)+torch.sum(L1)) - gamma * torch.sum(P1)
+
             if args.is_ab2:
-                loss_all = args.weight_lambda * (loss_soft1 + loss_soft)
+                loss_all = args.weight_lambda * (loss_soft1 + loss_soft + mmd1 + mmd)
             else:
-                loss_all = loss + loss1 + args.weight_lambda * (loss_soft1 + loss_soft)
+                loss_all = loss + loss1 + args.weight_lambda * (loss_soft1 + loss_soft + mmd1 + mmd)
 
             loss_all.backward()
 
@@ -517,7 +554,7 @@ def train(args,
             target_merged = torch.cat((target,softlabel_other1.argmax(dim=1)),dim=0)
             prec1, prec5 = utils.accuracy(logits_merged, target_merged, topk=(1, 5))
             
-            loss_merged = (loss + args.weight_lambda *loss_soft1)
+            loss_merged = (loss + args.weight_lambda * (loss_soft1 + mmd1))
             
             objs.update(loss_merged.item(), n)
             top1.update(prec1.item(), n)
@@ -528,11 +565,13 @@ def train(args,
             target1_merged = torch.cat((target,softlabel_other.argmax(dim=1)),dim=0)
             prec1, prec5 = utils.accuracy(logits1_merged, target1_merged, topk=(1, 5))
             
-            loss_merged1 = (loss1 + args.weight_lambda *loss_soft)
+            loss_merged1 = (loss1 + args.weight_lambda * (loss_soft + mmd))
             
             objs1.update(loss_merged1.item(), n)
             top1_1.update(prec1.item(), n)
             top5_1.update(prec5.item(), n)
+
+            # print('mmd, mmd1, loss_soft, loss_soft1:', mmd.item(), mmd1.item(), loss_soft.item(), loss_soft1.item())
 
             if step % args.report_freq == 0:
                 logging.info('train 1st %03d %e %f %f', step,
