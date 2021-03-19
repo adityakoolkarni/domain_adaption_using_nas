@@ -499,6 +499,7 @@ def train(args,
             #   softlabel_other1 = F.softmax(external_out1, 1)
 
             loss_soft1 = softXEnt(external_out, softlabel_other1)
+            args.weight_lambda = (epoch-args.pretrain_steps+1) / args.epochs #linear scaling of weight
             if args.is_ab2:
                 loss_all = args.weight_lambda * (loss_soft1 + loss_soft)
             else:
