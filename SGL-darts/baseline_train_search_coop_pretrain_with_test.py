@@ -17,7 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 from model_search_pretrain import Network
 from architect_coop_pretrain import Architect, softXEnt
-# from genotypes import PRIMITIVES
+#from genotypes import PRIMITIVES
 from genotypes import PRIMITIVES_LIGHT as PRIMITIVES
 
 parser = argparse.ArgumentParser("cifar")
@@ -36,7 +36,7 @@ parser.add_argument('--weight_decay', type=float,
 parser.add_argument('--report_freq', type=float,
                     default=50, help='report frequency')
 parser.add_argument('--gpu', type=str, default='0', help='gpu device id')
-parser.add_argument('--epochs', type=int, default=20,
+parser.add_argument('--epochs', type=int, default=50,
                     help='num of training epochs')
 parser.add_argument('--init_channels', type=int,
                     default=16, help='num of init channels')
@@ -64,11 +64,9 @@ parser.add_argument('--arch_weight_decay', type=float,
                     default=1e-3, help='weight decay for arch encoding')
 parser.add_argument('--is_parallel', type=int, default=0)
 parser.add_argument('--weight_lambda', type=float, default=1.0)
-parser.add_argument('--mmd_lambda', type=float, default=1.0)
 parser.add_argument('--debug', default=False, action='store_true')
 parser.add_argument('--pretrain_steps', type=int, default=5)
 parser.add_argument('--is_ab2', type=int, default=0)
-parser.add_argument('--is_changemmd', type=int, default=0)
 args = parser.parse_args()
 
 args.save = 'search-{}-{}'.format(args.save, time.strftime("%Y%m%d-%H%M%S"))
@@ -98,6 +96,7 @@ def initialize_alphas(steps=4):
         alphas_reduce,
     ]
     return _arch_parameters, alphas_normal, alphas_reduce
+
 
 def main():
     if not torch.cuda.is_available():
@@ -192,15 +191,13 @@ def main():
     train_data = dset.CIFAR10(root=args.data, train=True, download=True, transform=train_transform)
 
     # load target domain - train,test data
-    test_transform, valid_transform = utils._data_transforms_cifar10(args)  # same transform applicable for stl-10
-    target_domain_data = dset.STL10(root=args.data, split='train', download=True, transform=test_transform)
-    # target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
-    target_domain_test_data = target_domain_data  ## test on same images that were used in training! No labels are involved
-
-    # source_domain_test_data = dset.CIFAR10(root=args.data, split='test', download=True, transform=test_transform)
-    _, test_transform1 = utils._data_transforms_cifar10(args)
-    source_domain_test_data = dset.CIFAR10(root=args.data, train=False, download=True, transform=test_transform1)
-
+    test_transform, valid_transform = utils._data_transforms_cifar10(args) #same transform applicable for stl-10
+    target_domain_test_data = dset.STL10(root=args.data, split='train', download=True, transform=test_transform)
+    #target_domain_test_data = dset.STL10(root=args.data, split='test', download=True, transform=test_transform)
+    target_domain_data = train_data
+    #target_domain_test_data = target_domain_data ## test on same images that were used in training! No labels are involved
+    source_domain_test_data = dset.CIFAR10(root=args.data, train=False, download=True, transform=test_transform)
+    
     num_train = len(train_data)
     indices = list(range(num_train))
     split = int(np.floor(args.train_portion * num_train))
@@ -209,12 +206,12 @@ def main():
     train_queue = torch.utils.data.DataLoader(
         train_data, batch_size=args.batch_size,
         sampler=torch.utils.data.sampler.SubsetRandomSampler(indices[:split]),
-        pin_memory=False, num_workers=4, drop_last=True)
+        pin_memory=False, num_workers=4)
 
     external_queue = torch.utils.data.DataLoader(
         target_domain_data, batch_size=args.batch_size,
         sampler=torch.utils.data.sampler.SubsetRandomSampler(target_domain_indices),
-        pin_memory=False, num_workers=4, drop_last=True)
+        pin_memory=False, num_workers=4)
 
     valid_queue = torch.utils.data.DataLoader(
         train_data, batch_size=args.batch_size,
@@ -241,7 +238,6 @@ def main():
         lr1_pretrain = scheduler1_pretrain.get_lr()[0]
         logging.info('epoch %d lr %e lr1 %e lr_pretrain %e lr1_pretrain %e',
                      epoch, lr, lr1, lr_pretrain, lr1_pretrain)
-
         if epoch >= args.pretrain_steps:
             genotype = model.genotype()
             genotype1 = model1.genotype()
@@ -275,7 +271,6 @@ def main():
             lr1,
             lr_pretrain,
             lr1_pretrain)
-
         if epoch >= args.pretrain_steps:
             logging.info('train_acc %f train_acc1 %f', train_acc, train_acc1)
         else:
@@ -288,7 +283,6 @@ def main():
         else:
             scheduler_pretrain.step()
             scheduler1_pretrain.step()
-
         # validation
         if epoch >= args.pretrain_steps:
             valid_acc, valid_obj, valid_acc1, valid_obj1 = infer(
@@ -299,6 +293,7 @@ def main():
                 args,
                 epoch)
             logging.info('valid_acc %f valid_acc1 %f', valid_acc, valid_acc1)
+
 
             if epoch % 10 == 0:
                 utils.save(model, os.path.join(args.save, 'weights0_' + str(epoch) + '.pt'))
@@ -315,17 +310,13 @@ def main():
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
                 list(range(target_num_test))),
             pin_memory=False, num_workers=4)
-
-        target_l1_test_acc_top1, target_l1_obj, target_l2_test_acc_top1, target_l2_obj = test_infer(
-            target_test_queue,
-            model, model1,
-            criterion, args,
-            epoch, 1)
+        
+        target_l1_test_acc_top1, target_l1_obj, target_l2_test_acc_top1, target_l2_obj = test_infer(target_test_queue, model, model1, criterion, args, epoch, 1)
         logging.info('TARGET TEST - learner 1 - test_acc_top1 %f', target_l1_test_acc_top1)
         logging.info('TARGET TEST - learner 1 - test_acc_obj %f', target_l1_obj)
         logging.info('TARGET TEST - learner 2 - test_acc_top1 %f', target_l2_test_acc_top1)
         logging.info('TARGET TEST - learner 2 - test_acc_obj %f', target_l2_obj)
-
+        
         # test on source domain data
         source_num_test = len(source_domain_test_data)
         source_test_queue = torch.utils.data.DataLoader(
@@ -333,17 +324,68 @@ def main():
             sampler=torch.utils.data.sampler.SubsetRandomSampler(
                 list(range(source_num_test))),
             pin_memory=False, num_workers=4)
-
-        source_l1_test_acc_top1, source_l1_obj, source_l2_test_acc_top1, source_l2_obj = test_infer(
-            source_test_queue,
-            model, model1,
-            criterion, args,
-            epoch, 0)
+        
+        source_l1_test_acc_top1, source_l1_obj, source_l2_test_acc_top1, source_l2_obj = test_infer(source_test_queue, model, model1, criterion, args, epoch, 0)
         logging.info('SOURCE TEST - learner 1 - test_acc_top1 %f', source_l1_test_acc_top1)
         logging.info('SOURCE TEST - learner 1 - test_acc_obj %f', source_l1_obj)
         logging.info('SOURCE TEST - learner 2 - test_acc_top1 %f', source_l2_test_acc_top1)
         logging.info('SOURCE TEST - learner 2 - test_acc_obj %f', source_l2_obj)
         ############
+        
+
+
+def test_infer(queue, model, model1, criterion, args, epoch, is_target_data):
+    objs = utils.AvgrageMeter()
+    top1 = utils.AvgrageMeter()
+    top5 = utils.AvgrageMeter()
+    objs1 = utils.AvgrageMeter()
+    top1_1 = utils.AvgrageMeter()
+    top5_1 = utils.AvgrageMeter()
+    
+    if(is_target_data):
+        test_domain = 'Target'
+    else:
+        test_domain = 'Source'
+        
+    model.eval()
+    model1.eval()
+    with torch.no_grad():
+        for step, (input, target) in enumerate(queue):
+            input = input.cuda()
+            target = target.cuda(non_blocking=True)
+
+            logits = model(input)
+            loss = criterion(logits, target)
+
+            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
+            n = input.size(0)
+            objs.update(loss.item(), n)
+            top1.update(prec1.item(), n)
+            top5.update(prec5.item(), n)
+
+            # for the second model.
+            logits = model1(input)
+            loss = criterion(logits, target)
+
+            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
+            objs1.update(loss.item(), n)
+            top1_1.update(prec1.item(), n)
+            top5_1.update(prec5.item(), n)
+            if step % args.report_freq == 0:
+                logging.info('test 1st %03d %e %f %f', step,
+                             objs.avg, top1.avg, top5.avg)
+                logging.info('test 2nd %03d %e %f %f', step,
+                             objs1.avg, top1_1.avg, top5_1.avg)
+                args.test_writer.add_scalar(test_domain+'Model_0/TestLoss', objs.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_0/TestAccuracyTop1', top1.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_0/TestAccuracyTop5', top5.avg, epoch * len(queue) + step)
+
+                args.test_writer.add_scalar(test_domain+'Model_1/TestLoss', objs1.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_1/TestAccuracyTop1', top1_1.avg, epoch * len(queue) + step)
+                args.test_writer.add_scalar(test_domain+'Model_1/TestAccuracyTop5', top5_1.avg, epoch * len(queue) + step)
+                
+    return top1.avg, objs.avg, top1_1.avg, objs1.avg
+
 
 def train(args,
           epoch,
@@ -423,19 +465,7 @@ def train(args,
             logits1 = model1_pretrain(input)
             loss = criterion(logits, target)
             loss1 = criterion(logits1, target)
-
-            pretrain_external_out = model_pretrain(input_external)
-            pretrain_external_out1 = model1_pretrain(input_external)
-
-            mmd_loss, mmd_loss1 = calculate_mmd(logits, logits1, pretrain_external_out, pretrain_external_out1)
-
-            if args.is_changemmd:
-                scale = (epoch + 1)/ (args.pretrain_steps + args.epochs)
-                # print(scale)
-                loss = loss + loss1 + args.mmd_lambda *(mmd_loss + mmd_loss1)*scale
-            else:
-                loss = loss + loss1 + args.mmd_lambda *(mmd_loss + mmd_loss1)
-
+            loss = loss + loss1
             loss.backward()
             nn.utils.clip_grad_norm_(model_pretrain.parameters(), args.grad_clip)
             nn.utils.clip_grad_norm_(model1_pretrain.parameters(), args.grad_clip)
@@ -454,21 +484,27 @@ def train(args,
             with torch.no_grad():
                 softlabel_other = F.softmax(model_pretrain(input_external), 1)
                 softlabel_other1 = F.softmax(model1_pretrain(input_external), 1)
+            # if args.debug:
+            #   with torch.no_grad():
+            #     softlabel_other = F.softmax(external_out, 1)
+            #   softlabel_other = softlabel_other.detach()
+            # else:
+            #   softlabel_other = F.softmax(external_out, 1)
 
             loss_soft = softXEnt(external_out1, softlabel_other)
+            # if args.debug:
+            #   with torch.no_grad():
+            #     softlabel_other1 = F.softmax(external_out1, 1)
+            #   softlabel_other1 = softlabel_other1.detach()
+            # else:
+            #   softlabel_other1 = F.softmax(external_out1, 1)
 
             loss_soft1 = softXEnt(external_out, softlabel_other1)
-
-            mmd, mmd1 = calculate_mmd(logits, logits1, external_out, external_out1)
-
+            #args.weight_lambda = (epoch-args.pretrain_steps+1) / args.epochs #linear scaling of weight
             if args.is_ab2:
-                loss_all = args.weight_lambda * (loss_soft1 + loss_soft) + args.mmd_lambda*(mmd1 + mmd)
-            if args.is_changemmd:
-                scale = (epoch + 1) / (args.pretrain_steps + args.epochs)
-                # print(scale)
-                loss_all = loss + loss1 + args.weight_lambda * (loss_soft1 + loss_soft) + args.mmd_lambda *(mmd1 + mmd)*scale
+                loss_all = args.weight_lambda * (loss_soft1 + loss_soft)
             else:
-                loss_all = loss + loss1 + args.weight_lambda * (loss_soft1 + loss_soft) + args.mmd_lambda*(mmd1 + mmd)
+                loss_all = loss + loss1 + args.weight_lambda * (loss_soft1 + loss_soft)
 
             loss_all.backward()
 
@@ -476,30 +512,28 @@ def train(args,
             nn.utils.clip_grad_norm_(model1.parameters(), args.grad_clip)
             optimizer.step()
             optimizer1.step()
-
+            
             ##Plotting the overall loss - Including both source domain and target domain
-            logits_merged = torch.cat((logits, external_out), dim=0)
-            target_merged = torch.cat((target, softlabel_other1.argmax(dim=1)), dim=0)
+            logits_merged = torch.cat((logits,external_out),dim=0)
+            target_merged = torch.cat((target,softlabel_other1.argmax(dim=1)),dim=0)
             prec1, prec5 = utils.accuracy(logits_merged, target_merged, topk=(1, 5))
-
-            loss_merged = loss + args.weight_lambda * (loss_soft1) + args.mmd_lambda*(mmd1)
-
+            
+            loss_merged = (loss + args.weight_lambda *loss_soft1)
+            
             objs.update(loss_merged.item(), n)
             top1.update(prec1.item(), n)
             top5.update(prec5.item(), n)
 
             ##Plotting the overall loss - Including both source domain and target domain
-            logits1_merged = torch.cat((logits1, external_out1), dim=0)
-            target1_merged = torch.cat((target, softlabel_other.argmax(dim=1)), dim=0)
+            logits1_merged = torch.cat((logits1,external_out1),dim=0)
+            target1_merged = torch.cat((target,softlabel_other.argmax(dim=1)),dim=0)
             prec1, prec5 = utils.accuracy(logits1_merged, target1_merged, topk=(1, 5))
-
-            loss_merged1 = loss1 + args.weight_lambda * (loss_soft) + args.mmd_lambda*(mmd)
-
+            
+            loss_merged1 = (loss1 + args.weight_lambda *loss_soft)
+            
             objs1.update(loss_merged1.item(), n)
             top1_1.update(prec1.item(), n)
             top5_1.update(prec5.item(), n)
-
-            # print('mmd, mmd1, loss_soft, loss_soft1:', mmd.item(), mmd1.item(), loss_soft.item(), loss_soft1.item())
 
             if step % args.report_freq == 0:
                 logging.info('train 1st %03d %e %f %f', step,
@@ -534,19 +568,7 @@ def train(args,
             logits1 = model1_pretrain(input)
             loss = criterion(logits, target)
             loss1 = criterion(logits1, target)
-
-            pretrain_external_out = model_pretrain(input_external)
-            pretrain_external_out1 = model1_pretrain(input_external)
-            mmd_loss, mmd_loss1 = calculate_mmd(logits, logits1, pretrain_external_out, pretrain_external_out1)
-
-            if args.is_changemmd:
-                scale = (epoch + 1) / (args.pretrain_steps + args.epochs)
-                # print(scale)
-                loss = loss + loss1 + args.mmd_lambda *(mmd_loss + mmd_loss1)*scale
-            else:
-                loss = loss + loss1 + args.mmd_lambda *(mmd_loss + mmd_loss1)
-
-
+            loss = loss + loss1
             loss.backward()
             nn.utils.clip_grad_norm_(model_pretrain.parameters(), args.grad_clip)
             nn.utils.clip_grad_norm_(model1_pretrain.parameters(), args.grad_clip)
@@ -581,44 +603,6 @@ def train(args,
                                              epoch * len(train_queue) + step)
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
-
-def calculate_mmd(model0_source_feature, model0_target_feature, model1_source_feature, model1_target_feature):
-    data_source_domain = model0_source_feature
-    data_source_domain1 = model1_source_feature
-
-    data_target_domain = model0_target_feature
-    data_target_domain1 = model1_target_feature
-
-    xx, yy, zz = torch.mm(data_source_domain, data_source_domain.t()), torch.mm(data_target_domain,
-                                                                                data_target_domain.t()), torch.mm(
-        data_source_domain, data_target_domain.t())
-    xx1, yy1, zz1 = torch.mm(data_source_domain1, data_source_domain1.t()), torch.mm(data_target_domain1,
-                                                                                     data_target_domain1.t()), torch.mm(
-        data_source_domain1, data_target_domain1.t())
-
-    rx = (xx.diag().unsqueeze(0).expand_as(xx))
-    ry = (yy.diag().unsqueeze(0).expand_as(yy))
-
-    rx1 = (xx1.diag().unsqueeze(0).expand_as(xx1))
-    ry1 = (yy1.diag().unsqueeze(0).expand_as(yy1))
-
-    alpha = 0.1
-    K = torch.exp(- alpha * (rx.t() + rx - 2 * xx))
-    L = torch.exp(- alpha * (ry.t() + ry - 2 * yy))
-    P = torch.exp(- alpha * (rx.t() + ry - 2 * zz))
-
-    K1 = torch.exp(- alpha * (rx1.t() + rx1 - 2 * xx1))
-    L1 = torch.exp(- alpha * (ry1.t() + ry1 - 2 * yy1))
-    P1 = torch.exp(- alpha * (rx1.t() + ry1 - 2 * zz1))
-
-    B = model0_source_feature.size(0)
-    beta = (1. / (B * (B - 1)))
-    gamma = (2. / (B * B))
-
-    mmd =  beta * (torch.sum(K) + torch.sum(L)) - gamma * torch.sum(P)
-    mmd1 =  beta * (torch.sum(K1) + torch.sum(L1)) - gamma * torch.sum(P1)
-
-    return mmd, mmd1
 
 def infer(valid_queue, model, model1, criterion, args, epoch):
     objs = utils.AvgrageMeter()
@@ -667,61 +651,6 @@ def infer(valid_queue, model, model1, criterion, args, epoch):
 
     return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
-def test_infer(queue, model, model1, criterion, args, epoch, is_target_data):
-    objs = utils.AvgrageMeter()
-    top1 = utils.AvgrageMeter()
-    top5 = utils.AvgrageMeter()
-    objs1 = utils.AvgrageMeter()
-    top1_1 = utils.AvgrageMeter()
-    top5_1 = utils.AvgrageMeter()
-
-    if (is_target_data):
-        test_domain = 'Target'
-    else:
-        test_domain = 'Source'
-
-    model.eval()
-    model1.eval()
-    with torch.no_grad():
-        for step, (input, target) in enumerate(queue):
-            input = input.cuda()
-            target = target.cuda(non_blocking=True)
-
-            logits = model(input)
-            loss = criterion(logits, target)
-
-            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
-            n = input.size(0)
-            objs.update(loss.item(), n)
-            top1.update(prec1.item(), n)
-            top5.update(prec5.item(), n)
-
-            # for the second model.
-            logits = model1(input)
-            loss = criterion(logits, target)
-
-            prec1, prec5 = utils.accuracy(logits, target, topk=(1, 5))
-            objs1.update(loss.item(), n)
-            top1_1.update(prec1.item(), n)
-            top5_1.update(prec5.item(), n)
-            if step % args.report_freq == 0:
-                logging.info('test 1st %03d %e %f %f', step,
-                             objs.avg, top1.avg, top5.avg)
-                logging.info('test 2nd %03d %e %f %f', step,
-                             objs1.avg, top1_1.avg, top5_1.avg)
-                args.test_writer.add_scalar(test_domain + 'Model_0/TestLoss', objs.avg, epoch * len(queue) + step)
-                args.test_writer.add_scalar(test_domain + 'Model_0/TestAccuracyTop1', top1.avg,
-                                            epoch * len(queue) + step)
-                args.test_writer.add_scalar(test_domain + 'Model_0/TestAccuracyTop5', top5.avg,
-                                            epoch * len(queue) + step)
-
-                args.test_writer.add_scalar(test_domain + 'Model_1/TestLoss', objs1.avg, epoch * len(queue) + step)
-                args.test_writer.add_scalar(test_domain + 'Model_1/TestAccuracyTop1', top1_1.avg,
-                                            epoch * len(queue) + step)
-                args.test_writer.add_scalar(test_domain + 'Model_1/TestAccuracyTop5', top5_1.avg,
-                                            epoch * len(queue) + step)
-
-    return top1.avg, objs.avg, top1_1.avg, objs1.avg
 
 if __name__ == '__main__':
     main()
