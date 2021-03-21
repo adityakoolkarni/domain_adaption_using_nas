@@ -1,4 +1,4 @@
-# Domain Adaption Using Neural Architecture Search and Small Group Learning
+# AdaptSGL: Domain Adaptation using Neural Architecture Search and Small Group Learning
 
 ## Authors: Dongxia Wu, Aditya Kulkarni, Balaji Shankar Balachandran
 
