@@ -10,6 +10,7 @@ This project aims to solve the problem of Domain Adaptation with minimum possibl
 - [Requirements](#requirements)
 - [Running the Code](#run)
 - [Dataset](#dataset)
+- [Reference](#reference)
 
 ## Requirements <a name="requirements"></a>
 Use the requirements.txt file to create a virtual environment. That is , conda create --name <env> --file requirements.txt.
