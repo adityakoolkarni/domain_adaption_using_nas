@@ -28,7 +28,7 @@ python AdaptSGL.py \\
 Update: GPU number if you have multiple GPU's 
 
 ## Dataset <a name="dataset"></a>
-  CIFAR-10 for source domain, STL-10 for target domain
+  [CIFAR-10](https://www.cs.toronto.edu/~kriz/cifar.html) for source domain, [STL-10](https://cs.stanford.edu/~acoates/stl10/) for target domain
 
 ## Reference <a name="reference"></a>
 Code accompanying the paper [Small-Group Learning, with Application to Neural Architecture Search](https://arxiv.org/abs/2012.12502)  
