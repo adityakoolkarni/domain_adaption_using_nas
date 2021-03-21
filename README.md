@@ -29,9 +29,7 @@ Update: GPU number if you have multiple GPU's
 ## Dataset <a name="dataset"></a>
   CIFAR-10 for source domain, STL-10 for target domain
 
-Code accompanying the paper  
-***Small Group Learning, with Application to Neural Architecture Search*** [paper]()  
-<!-- Xiangning Chen, Ruochen Wang, Minhao Cheng, Xiaocheng Tang, Cho-Jui Hsieh -->
-
+## Reference <a name="reference"></a>
+Code accompanying the paper [Small-Group Learning, with Application to Neural Architecture Search](https://arxiv.org/abs/2012.12502)  
 This code is based on the implementation of [DARTS](https://github.com/quark0/darts).
 
